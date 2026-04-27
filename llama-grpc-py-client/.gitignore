@@ -1,0 +1,12 @@
+# Python virtual environment
+bin/
+lib/
+lib64/
+include/
+pyvenv.cfg
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
