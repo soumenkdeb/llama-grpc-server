@@ -152,20 +152,71 @@ Download any GGUF model from Hugging Face and place it in the `models/` director
 
 ```bash
 mkdir -p models
-
-# Example: Llama 3.2 3B Instruct (Q4, ~2 GB)
-pip install huggingface-hub
-huggingface-cli download bartowski/Llama-3.2-3B-Instruct-GGUF \
-    Llama-3.2-3B-Instruct-Q4_K_M.gguf \
-    --local-dir models
-
-# Example: Phi-3.5 Mini (~2.8 GB)
-huggingface-cli download bartowski/Phi-3.5-mini-instruct-GGUF \
-    Phi-3.5-mini-instruct-Q4_K_M.gguf \
-    --local-dir models
 ```
 
-Other tested models: `Qwen2.5-7B-Instruct`, `Mistral-7B-Instruct`, `Gemma-2-2B`.
+### Method 1 — wget (simplest)
+
+Paste the direct URL from the Hugging Face file page (click the download arrow → copy link):
+
+```bash
+# Llama 3.2 3B Instruct Q5 (~2.4 GB)
+wget https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q5_K_M.gguf \
+    -O models/llama3.2-3b.gguf
+
+# Phi-3.5 Mini Q4 (~2.2 GB)
+wget https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf \
+    -O models/phi-3.5-mini.gguf
+
+# Qwen 2.5 7B Instruct Q4 (~4.7 GB)
+wget https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf \
+    -O models/qwen2.5-7b.gguf
+```
+
+Add `-c` to resume an interrupted download: `wget -c <url> -O models/...`
+
+### Method 2 — curl
+
+```bash
+curl -L https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q5_K_M.gguf \
+    -o models/llama3.2-3b.gguf
+```
+
+### Method 3 — huggingface-cli
+
+Lets you browse and download by repo + filename without constructing URLs manually:
+
+```bash
+pip install huggingface-hub
+
+# Llama 3.2 3B Instruct Q4
+huggingface-cli download bartowski/Llama-3.2-3B-Instruct-GGUF \
+    Llama-3.2-3B-Instruct-Q4_K_M.gguf --local-dir models
+
+# Phi-3.5 Mini Q4
+huggingface-cli download bartowski/Phi-3.5-mini-instruct-GGUF \
+    Phi-3.5-mini-instruct-Q4_K_M.gguf --local-dir models
+```
+
+For gated models (e.g. Llama 3 from Meta) log in first: `huggingface-cli login`
+
+### Choosing a quantisation level
+
+The `Q` suffix in the filename controls the size/quality trade-off:
+
+| Quant | RAM (3B model) | Quality | When to use |
+|-------|---------------|---------|-------------|
+| `Q8_0` | ~3.5 GB | Best | Plenty of VRAM / RAM |
+| `Q5_K_M` | ~2.4 GB | Very good | Recommended balance |
+| `Q4_K_M` | ~2.0 GB | Good | Tight on memory |
+| `Q3_K_M` | ~1.6 GB | Fair | Very limited RAM |
+
+`K_M` variants use a mixed-precision scheme that preserves quality better than plain `Q4_0` / `Q5_0` at the same size — prefer `K_M` when available.
+
+### Where to find models
+
+- **[bartowski](https://huggingface.co/bartowski)** — high-quality GGUF conversions of popular models
+- **[TheBloke](https://huggingface.co/TheBloke)** — large archive of older conversions
+- **[Hugging Face search](https://huggingface.co/models?library=gguf)** — filter by `gguf` library tag
 
 ## Running the Server
 
