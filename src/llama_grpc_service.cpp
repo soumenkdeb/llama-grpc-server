@@ -52,6 +52,7 @@ grpc::Status LlamaGrpcService::ChatCompletion(
     try {
         std::string prompt = apply_chat_template(request);
 
+        std::lock_guard<std::mutex> lock(ctx_mutex_);
         bool success = generate_token_stream(
             prompt,
             request->max_tokens() > 0 ? request->max_tokens() : 512,

@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <mutex>
 
 class LlamaGrpcService final : public llama::LlamaService::Service {
 public:
@@ -21,6 +22,7 @@ public:
 private:
     llama_model*   model_ = nullptr;
     llama_context* ctx_ = nullptr;
+    mutable std::mutex ctx_mutex_;
 
     std::string apply_chat_template(const llama::ChatCompletionRequest* request);
     
