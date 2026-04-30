@@ -2,18 +2,20 @@
 #include <iostream>
 #include <csignal>
 #include <atomic>
+#include <thread>
+#include <condition_variable>
 #include "llama.grpc.pb.h"
 #include "llama_grpc_service.h"
 
 static std::atomic<bool> shutdown_requested(false);
 static std::unique_ptr<grpc::Server> g_server;
+static std::condition_variable shutdown_cv;
+static std::mutex shutdown_mutex;
 
 static void signal_handler(int signum) {
-    std::cout << "\nShutdown signal received (" << signum << "), gracefully shutting down..." << std::endl;
+    // Only set flag in signal handler, don't call gRPC functions
     shutdown_requested = true;
-    if (g_server) {
-        g_server->Shutdown();
-    }
+    shutdown_cv.notify_one();
 }
 
 static void print_usage(const char* prog) {
@@ -37,16 +39,43 @@ int main(int argc, char** argv) {
 
     std::cout << "Starting gRPC server with model: " << model_path << std::endl;
 
-    LlamaGrpcService service(model_path);
+    try {
+        LlamaGrpcService service(model_path);
+        std::cout << "Model loaded successfully" << std::endl;
 
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+        grpc::ServerBuilder builder;
+        builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+        builder.RegisterService(&service);
 
-    g_server = builder.BuildAndStart();
-    std::cout << "gRPC server listening on " << server_address << std::endl;
-    g_server->Wait();
-    g_server.reset();
-    std::cout << "Server shutdown complete" << std::endl;
+        g_server = builder.BuildAndStart();
+        if (!g_server) {
+            std::cerr << "Failed to start gRPC server" << std::endl;
+            return 1;
+        }
+        std::cout << "gRPC server listening on " << server_address << std::endl;
+
+        // Shutdown thread: wait for signal, then safely call Shutdown()
+        std::thread shutdown_thread([&]() {
+            std::unique_lock<std::mutex> lock(shutdown_mutex);
+            shutdown_cv.wait(lock, [] { return shutdown_requested.load(); });
+            std::cout << "\nShutdown signal received, gracefully shutting down..." << std::endl;
+            if (g_server) {
+                g_server->Shutdown();
+            }
+        });
+
+        g_server->Wait();
+        shutdown_thread.join();
+        g_server.reset();
+        std::cout << "Server shutdown complete" << std::endl;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Fatal error: " << e.what() << std::endl;
+        return 1;
+    }
+    catch (...) {
+        std::cerr << "Unknown fatal error" << std::endl;
+        return 1;
+    }
     return 0;
 }
