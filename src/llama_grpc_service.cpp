@@ -119,11 +119,10 @@ bool LlamaGrpcService::generate_token_stream(
             break;
         }
 
-        // Query required size first, then fill — avoids buffer overflow on long tokens
-        int32_t len = llama_token_to_piece(vocab, new_token, nullptr, 0, 0, true);
-        if (len < 0) { ok = false; break; }
-        std::string token_str(len, '\0');
-        llama_token_to_piece(vocab, new_token, token_str.data(), len, 0, true);
+        // 256 bytes > model's 48-byte max token length; avoids overflow of old 16-byte buf
+        char piece_buf[256];
+        int32_t len = llama_token_to_piece(vocab, new_token, piece_buf, sizeof(piece_buf), 0, true);
+        std::string token_str = (len > 0) ? std::string(piece_buf, len) : "";
 
         response.set_delta(token_str);
         response.set_finish_reason("");
