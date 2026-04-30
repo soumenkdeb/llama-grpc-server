@@ -1,7 +1,6 @@
 #include "llama_grpc_service.h"
 #include <iostream>
 #include <sstream>
-#include <array>
 
 LlamaGrpcService::LlamaGrpcService(const std::string& model_path) {
     // Load model
@@ -109,7 +108,6 @@ bool LlamaGrpcService::generate_token_stream(
 
     llama_token new_token;
     llama::ChatCompletionResponse response;
-    std::array<char, 16> piece_buf{};
     bool ok = true;
 
     for (uint32_t i = 0; i < max_tokens; ++i) {
@@ -121,8 +119,11 @@ bool LlamaGrpcService::generate_token_stream(
             break;
         }
 
-        int32_t len = llama_token_to_piece(vocab, new_token, piece_buf.data(), piece_buf.size(), 0, true);
-        std::string token_str(piece_buf.data(), len > 0 ? len : 0);
+        // Query required size first, then fill — avoids buffer overflow on long tokens
+        int32_t len = llama_token_to_piece(vocab, new_token, nullptr, 0, 0, true);
+        if (len < 0) { ok = false; break; }
+        std::string token_str(len, '\0');
+        llama_token_to_piece(vocab, new_token, token_str.data(), len, 0, true);
 
         response.set_delta(token_str);
         response.set_finish_reason("");
