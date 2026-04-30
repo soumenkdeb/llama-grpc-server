@@ -94,8 +94,13 @@ bool LlamaGrpcService::generate_token_stream(
     }
     tokens.resize(n_tokens);
 
-    if (llama_decode(ctx_, llama_batch_get_one(tokens.data(), tokens.size())) != 0) {
-        return false;
+    // llama_decode asserts n_tokens <= n_batch; split prompt into n_batch chunks
+    const uint32_t n_batch = llama_n_batch(ctx_);
+    for (int32_t i = 0; i < n_tokens; i += n_batch) {
+        int32_t n = std::min((int32_t)n_batch, n_tokens - i);
+        if (llama_decode(ctx_, llama_batch_get_one(tokens.data() + i, n)) != 0) {
+            return false;
+        }
     }
 
     // Build per-request sampler chain using caller-supplied parameters
